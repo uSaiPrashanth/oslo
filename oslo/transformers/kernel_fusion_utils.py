@@ -6,7 +6,7 @@ from oslo.torch.nn import _NGramRepeatBlockFunction
 
 def get_ngram_logit_processor(batch_size, num_beams):
     from transformers import LogitsProcessor
-    from transformers.generation_logits_process import _calc_banned_ngram_tokens
+    from transformers.generation.logits_process import _calc_banned_ngram_tokens
 
     class FusedNoRepeatNGramLogitsProcessor(LogitsProcessor):
         def __init__(self, ngram_size: int):
