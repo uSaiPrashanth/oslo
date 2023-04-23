@@ -480,7 +480,7 @@ class _TensorParallel2D(nn.Module):
         if hasattr(module, "vocab_start_index") and hasattr(module, "vocab_end_index"):
             w = gather_2d(
                 self.parallel_context, module.weight.data, summa_dim, col_first=True
-            )
+            ).cpu()
 
             assert hasattr(
                 self.module, "orig_vocab_size"
@@ -499,7 +499,7 @@ class _TensorParallel2D(nn.Module):
                 orig_module=None,
             )
         else:
-            w = gather_1d_twice(self.parallel_context, module.weight.data, summa_dim, 1)
+            w = gather_1d_twice(self.parallel_context, module.weight.data, summa_dim, 1).cpu()
             module.weight.data = w
 
             _update_module_arguments(
@@ -512,13 +512,13 @@ class _TensorParallel2D(nn.Module):
 
     def _gather_head(self, module: Linear2D):
         if module.weight is not self.module.get_input_embeddings().weight:
-            return self._gather_linear(module)
+            return self._gather_linear(module).cpu()
         elif hasattr(module, "bias") and module.bias is not None:
             summa_dim = self.parallel_context.get_world_size(ParallelMode.TENSOR_2D_ROW)
 
             b = gather_1d_twice(
                 self.parallel_context, module.bias.data, summa_dim=summa_dim, dim=0
-            )
+            ).cpu()
 
             module.bias.data = b[: module.weight.size()[0]]
 
@@ -559,7 +559,7 @@ class _TensorParallel2D(nn.Module):
             module.weight.data,
             summa_dim=summa_dim,
             col_first=True,
-        )
+        ).cpu()
         # print(f"w shape: {w.shape}\nweight shape: {module.weight.data.shape}")
         if fusion_degree > 1:
             w = self._reconstruct_combined_qkv(w, summa_dim, fusion_degree, False)
@@ -571,7 +571,7 @@ class _TensorParallel2D(nn.Module):
             # if slice_bias is True and module.bias.dim() >= 1:
             b = gather_1d_twice(
                 self.parallel_context, module.bias.data, summa_dim=summa_dim, dim=0
-            )
+            ).cpu()
             if fusion_degree > 1:
                 b = self._reconstruct_combined_qkv(b, summa_dim, fusion_degree, True)
                 b = b.view(b.size()[1:])
@@ -610,7 +610,7 @@ class _TensorParallel2D(nn.Module):
                     module.weight.data,
                     summa_dim=summa_dim,
                     dim=0,
-                )
+                ).cpu()
                 module.weight.data = w
 
             if hasattr(module.weight, "oslo_parallel"):
@@ -620,7 +620,7 @@ class _TensorParallel2D(nn.Module):
             if module.bias.dim() >= 1:
                 b = gather_1d_twice(
                     self.parallel_context, module.bias.data, summa_dim=summa_dim, dim=0
-                )
+                ).cpu()
                 module.bias.data = b
 
             if hasattr(module.bias, "oslo_parallel"):

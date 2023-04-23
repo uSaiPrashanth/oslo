@@ -38,55 +38,16 @@ def save_pretrained(
     self,
     save_directory: Union[str, os.PathLike],
     save_config: bool = True,
-    state_dict: Optional[dict] = None,
     save_function: Callable = torch.save,
+    state_dict: Optional[dict] = None,
     merge_checkpoints: bool = False,
     **kwargs,
 ):
     PARALLELIZED_WEIGHTS_NAME = "pytorch_model_tp_0_pp_0_ep_0.bin"
 
     if merge_checkpoints and not is_merge_meaningless(self.parallel_context):
-        model_to_save = self.__class__(self.config).eval()
-
-        if state_dict is None:
-            state_dict = self.state_dict()
-
         if hasattr(self, "oslo_wrappers"):
             for parallel_mode, wrapper in self.oslo_wrappers.items():
-                if isinstance(wrapper, _TensorParallel):
-                    model_to_save = TensorParallel(
-                        model_to_save,
-                        parallel_context=self.parallel_context,
-                    )
-
-                elif isinstance(wrapper, _PipelineParallel):
-                    model_to_save = PipelineParallel(
-                        model_to_save,
-                        parallel_context=self.parallel_context,
-                        num_micro_batches=wrapper.num_micro_batches,
-                        memory_computation_balance=wrapper.partitioner.memory_computation_balance,
-                    )
-                elif isinstance(wrapper, _ExpertParallel):
-                    model_to_save = ExpertParallel(
-                        model_to_save,
-                        parallel_context=self.parallel_context,
-                        num_enc_experts=wrapper.num_experts["enc"],
-                        num_dec_experts=wrapper.num_experts["dec"],
-                        top_k=wrapper.top_k,
-                        capacity_factor_train=wrapper.capacity_factor_train,
-                        capacity_factor_eval=wrapper.capacity_factor_eval,
-                        min_capacity=wrapper.min_capacity,
-                        noisy_policy=wrapper.noisy_policy,
-                        use_rts=wrapper.use_rts,
-                        drop_tokens=wrapper.drop_tokens,
-                        use_residual=wrapper.use_residual,
-                    )
-
-        model_to_save.load_state_dict(state_dict)
-        oslo.ready(model_to_save, parallel_context=self.parallel_context)
-
-        if hasattr(model_to_save, "oslo_wrappers"):
-            for parallel_mode, wrapper in model_to_save.oslo_wrappers.items():
                 if hasattr(wrapper, "deparallelize"):
                     wrapper.deparallelize()
                 if hasattr(wrapper, "save_extra_states"):
@@ -95,7 +56,7 @@ def save_pretrained(
         # save the merged weight of rank 0
         if dist.get_rank() == 0:
             _save_pretrained_per_rank(
-                self=model_to_save,
+                self=self,
                 save_directory=save_directory,
                 save_config=save_config,
                 save_function=save_function,
@@ -105,8 +66,6 @@ def save_pretrained(
                 os.path.join(save_directory, PARALLELIZED_WEIGHTS_NAME),
                 os.path.join(save_directory, "pytorch_model.bin"),
             )
-
-        del model_to_save
 
     else:  # save weights of every rank without merge
         _save_pretrained_per_rank(

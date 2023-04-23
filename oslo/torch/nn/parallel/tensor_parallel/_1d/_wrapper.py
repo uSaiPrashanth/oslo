@@ -449,7 +449,7 @@ class _TensorParallel1D(nn.Module):
                 module.weight.data.contiguous(),
                 self.parallel_context.get_group(ParallelMode.TENSOR_1D),
             )
-            w = torch.cat(tensor_list, dim=0)
+            w = torch.cat(tensor_list, dim=0).cpu()
 
             assert hasattr(
                 self.module, "orig_vocab_size"
@@ -476,7 +476,7 @@ class _TensorParallel1D(nn.Module):
                 module.weight.data.contiguous(),
                 self.parallel_context.get_group(ParallelMode.TENSOR_1D),
             )
-            w = torch.cat(tensor_list, dim=1)
+            w = torch.cat(tensor_list, dim=1).cpu()
             module.weight.data = w
 
             _update_module_arguments(
@@ -495,7 +495,7 @@ class _TensorParallel1D(nn.Module):
 
         w = self._reconstruct_combined_qkv(
             module.weight, world_size, fusion_degree, dim
-        )
+        ).cpu()
         if is_reversed:
             w = w.t()
         module.weight.data = w
@@ -503,7 +503,7 @@ class _TensorParallel1D(nn.Module):
         if hasattr(module, "bias") and module.bias is not None and dim != 1:
             b = self._reconstruct_combined_qkv(
                 module.bias, world_size, fusion_degree, dim
-            )
+            ).cpu()
             module.bias.data = b
 
         _update_module_arguments(
@@ -535,7 +535,7 @@ class _TensorParallel1D(nn.Module):
         elif hasattr(module, "bias") and module.bias is not None:
             world_size = self.parallel_context.get_world_size(ParallelMode.TENSOR_1D)
 
-            b = self._reconstruct_combined_qkv(module.bias, world_size, 1, 0)
+            b = self._reconstruct_combined_qkv(module.bias, world_size, 1, 0).cpu()
 
             module.bias.data = b[: module.weight.size()[0]]
 
